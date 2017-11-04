@@ -778,7 +778,7 @@ int sysctl(int *name,
 WB_ALLOC_BACKEND_API
 int __cdecl sysinfo(struct sysinfo* info)
 {
-	int mib[2];
+	int mib[2], fourByte;
 	wb_usize size, eightByte;
 
 	size = sizeof(wb_usize);
@@ -789,8 +789,9 @@ int __cdecl sysinfo(struct sysinfo* info)
 
 	mib[0] = CTL_HW;
 	mib[1] = HW_PAGESIZE;
-	sysctl(mib, 2, &eightByte, &size, NULL, 0);
-	info->freeMemory = eightByte;
+	size = sizeof(int);
+	sysctl(mib, 2, &fourByte, &size, NULL, 0);
+	info->freeMemory = (wbi__u64)fourByte;
 	return 0;
 }
 
