@@ -786,6 +786,11 @@ int __cdecl sysinfo(struct sysinfo* info)
 	mib[1] = HW_MEMSIZE;
 	sysctl(mib, 2, &eightByte, &size, NULL, 0);
 	info->totalram = eightByte;
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_PAGESIZE;
+	sysctl(mib, 2, &eightByte, &size, NULL, 0);
+	info->freememory = eightByte;
 	return 0;
 }
 
@@ -839,7 +844,13 @@ wb_MemoryInfo wb_getMemoryInfo()
 	wb_MemoryInfo info;
 	sysinfo(&si);
 	totalMem = si.totalram;
+#ifdef __APPLE__
+	/* This is essentially a hack, but we need to 
+	 * follow a different path on OSX*/
+	pageSize = si.freememory;
+#else
 	pageSize = sysconf(_SC_PAGESIZE);
+#endif
 
 	info.totalMemory = totalMem;
 	info.commitSize = wb_CalcMegabytes(1);
