@@ -11,6 +11,8 @@
 
 /* Author: William Bundy 
  * Written in November of 2017
+ * 
+ * A big thanks to @alexkelbo for helping me get this working on macOS
  *
  * williambundy.xyz
  * github.com/williambundy
@@ -21,8 +23,7 @@
  * WARNING -- ALPHA SOFTWARE
  * ===========================================================================
  * This is ALPHA software, and has not been tested thoroughly!
- * Please report all bugs to the github, and expect that there will be plenty,
- * (especially with the tagged heap, I suspect)
+ * Please report all bugs to the github.
  * ===========================================================================
  *
  * Also: Warning -- Virtual Memory abuse
@@ -761,13 +762,21 @@ wbi__SystemExtern
 int sysinfo(struct sysinfo* info);
 
 #ifdef __APPLE__
+#ifndef CTL_HW
 #define CTL_HW 6
 #define HW_PAGESIZE 7
 #define HW_PHYSMEM 5
 #define HW_MEMSIZE 24
 
+wbi__SystemExtern
+int sysctl(int *name, 
+		unsigned int namelen, 
+		void *oldp, size_t *oldlenp, 
+		void *newp, size_t newlen);
+
+#endif
 WB_ALLOC_BACKEND_API
-int sysinfo(struct sysinfo* info)
+int __cdecl sysinfo(struct sysinfo* info)
 {
 	int mib[2];
 	wb_usize size, eightByte;
@@ -776,7 +785,7 @@ int sysinfo(struct sysinfo* info)
 	mib[0] = CTL_HW;
 	mib[1] = HW_MEMSIZE;
 	sysctl(mib, 2, &eightByte, &size, NULL, 0);
-	info->totalRam = eightByte;
+	info->totalram = eightByte;
 }
 
 #endif
