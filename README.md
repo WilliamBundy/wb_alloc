@@ -1,6 +1,6 @@
 # wb_alloc.h 
 
-### Easy-to-use custom allocators in a public-domain C/C++ library.
+## Easy-to-use custom allocators in a public-domain C/C++ library.
 
 - Allocate as much memory as you want\* with these simple custom
   allocators. (The amount of memory is limited to the physical memory in
@@ -15,7 +15,8 @@
 ## Current Status
 
 As of 11/4/17 or version 0.0.1, the library compiles with no warnings
-under clang and MSVC, however, it is largely untested.
+under clang and MSVC, however, it is largely untested with regards to
+runtime errors or performance. It should be considered **alpha software**.
 
 There are also some convenience features missing, such as being able to
 directly free/clear a memory pool and tagged heap.
@@ -74,6 +75,14 @@ directly free/clear a memory pool and tagged heap.
 
 #### Memory Arena
 
+	void* wb_arenaPush(
+			wb_MemoryArena* arena, 
+			wb_isize size);
+	
+	wb_MemoryArena* wb_arenaBootstrap(
+			wb_MemoryInfo info, 
+			wb_flags flags);
+
 Inspired by the Handmade Hero memory management structure, my memory arena
 is a variation on a "linear allocator" or a "bump-pointer allocator". It
 starts by allocating a large region of memory, returning a pointer to it,
@@ -98,15 +107,14 @@ The memory arena has a couple variants that can be enabled via flag
 
 These flags may be used together.
 
-	void* wb_arenaPush(
-			wb_MemoryArena* arena, 
-			wb_isize size);
-	
-	wb_MemoryArena* wb_arenaBootstrap(
-			wb_MemoryInfo info, 
-			wb_flags flags);
-
 #### Memory Pool
+
+	void* wb_poolRetrieve(wb_MemoryPool* pool);
+	void wb_poolRelease(wb_MemoryPool* pool, void* ptr);
+
+	wb_MemoryPool* wb_poolBootstrap(
+			wb_MemoryInfo info,
+			wb_flags flags);
 
 The memory pool is a simple fixed-size free-list allocator. It allows you
 to freely allocate and free fixed-size objects with no external
@@ -117,26 +125,7 @@ entities in a game world.
 Using a memory arena under the hood, the memory pool can allocate until it
 runs out of virtual memory.
 
-	void* wb_poolRetrieve(wb_MemoryPool* pool);
-	void wb_poolRelease(wb_MemoryPool* pool, void* ptr);
-
-	wb_MemoryPool* wb_poolBootstrap(
-			wb_MemoryInfo info,
-			wb_flags flags);
-
 #### Tagged Heap
-
-This one is inspired by the Naughty Dog GDC talk about using fibers to
-multithread their engine. They mention this as their solution to the
-overuse of wasteful memory arenas. The tagged heap behaves like a memory
-pool of memory arenas; that is, when you allocate, you specify a tag, and
-then you can free all the memory allocated under a single tag at once. It
-does this efficiently by allocating fixed-size arenas under the hood and
-allocating out of those as needed per-tag. 
-
-The tagged heap is the most flexible allocator in the library, allowing
-you to allocate almost as freely as with malloc and free if you find your
-deallocations apply to many related objects at once. 
 
 	void* wb_taggedAlloc(
 			wb_TaggedHeap* heap, 
@@ -149,6 +138,18 @@ deallocations apply to many related objects at once.
 			wb_MemoryInfo info, 
 			wb_isize arenaSize, 
 			wb_flags flags);
+
+This one is inspired by the Naughty Dog GDC talk about using fibers to
+multithread their engine. They mention this as their solution to the
+overuse of wasteful memory arenas. The tagged heap behaves like a memory
+pool of memory arenas; that is, when you allocate, you specify a tag, and
+then you can free all the memory allocated under a single tag at once. It
+does this efficiently by allocating fixed-size arenas under the hood and
+allocating out of those as needed per-tag. 
+
+The tagged heap is the most flexible allocator in the library, allowing
+you to allocate almost as freely as with malloc and free if you find your
+deallocations apply to many related objects at once. 
 
 ## The Magic
 
@@ -269,6 +270,44 @@ the flag `wb_FlagTaggedHeapSearchForBestFit`, which changes the behavior
 to search for the best of the first 8 (by default) arenas to put the
 object in.
 
+## C++ Support
+
+C++ adds a significant amount of friction when working with malloc and
+similar because it removes automatic `void*` coercion to other pointer
+types. The internals use casts to get around this, but this is especially
+unpleasant in the calling code. To alleviate this, I have added
+templatized overloads of every function that takes a size or returns
+a pointer, a few of which are listed listed here:
+
+	template<typename T, int n = 1>
+	T* wb_arenaPush(wb_MemoryArena* arena);
+
+	template<typename T>
+	T* wb_poolRetrieve(wb_MemoryPool* pool);
+
+	template<typename T>
+	wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info,
+			wb_flags flags);
+
+	template<typename T, int n = 1>
+	T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag);
+
+	void example(wb_MemoryArena* arena, wb_MemoryInfo info) 
+	{
+		auto numbers = wb_arenaPush<int, 1000>(arena);
+		auto thing10 = wb_arenaPush<Thing>(arena);
+		//   numbers = (int*)wb_arenaPush(arena, sizeof(int) * 1000);
+		//   thing10 = (Thing*)wb_arenaPush(arena, sizeof(Thing));
+
+		auto thingPool = wb_poolBootstrap<Thing>(info);
+
+		/* MemoryPools don't actually remember what type they were 
+		   initialized with, so you have to specify on allocation too */
+		auto thing2 = wb_poolRetrieve<Thing>(thingPool);
+		auto thing3 = wb_poolRetrieve<Thing>(thingPool);
+		auto thing4 = wb_poolRetrieve<Thing>(thingPool);
+		//   thing5 = (Thing*)wb_poolRetrieve(thingPool);
+	}
 
 
 
