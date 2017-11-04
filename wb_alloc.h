@@ -178,8 +178,10 @@
  *		- Placement new stuff???
  **/
 #ifndef WB_ALLOC_NO_DISABLE_STUPID_MSVC_WARNINGS
+#ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable:201 204 28 244 706)
+#endif
 #endif
 
 
@@ -218,6 +220,7 @@
 
 
 #ifndef WB_ALLOC_CUSTOM_INTEGER_TYPES
+#include <stddef.h>
 typedef size_t wb_usize;
 typedef ptrdiff_t wb_isize;
 typedef wb_isize wb_flags;
@@ -536,15 +539,17 @@ void wbi__taggedArenaSortBySize(wbi__TaggedHeapArena** array, wb_isize count);
 /* Platform-Specific Code */
 
 #ifndef WB_ALLOC_CUSTOM_BACKEND
+
+#ifdef __cplusplus
+#define wbi__SystemExtern extern "C"
+#else
+#define wbi__SystemExtern extern
+#endif
+
 #ifdef WB_ALLOC_WINDOWS
 #ifndef _WINDOWS_
 #ifndef WINAPI
 #define WINAPI __stdcall 
-#endif
-#ifdef __cplusplus
-#define wbi__WindowsExtern extern "C"
-#else
-#define wbi__WindowsExtern extern
 #endif
 #ifndef _In_
 #define _In_
@@ -577,20 +582,20 @@ typedef struct _SYSTEM_INFO {
   WORD      wProcessorRevision;
 } SYSTEM_INFO, *LPSYSTEM_INFO;
 
-wbi__WindowsExtern
+wbi__SystemExtern
 DWORD WINAPI GetLastError(void);
 
-wbi__WindowsExtern
+wbi__SystemExtern
 void WINAPI GetSystemInfo(
   _Out_ LPSYSTEM_INFO lpSystemInfo
 );
 
-wbi__WindowsExtern
+wbi__SystemExtern
 BOOL WINAPI GetPhysicallyInstalledSystemMemory(
   _Out_ PULONGLONG TotalMemoryInKilobytes
 );
 
-wbi__WindowsExtern
+wbi__SystemExtern
 LPVOID WINAPI VirtualAlloc(
   _In_opt_ LPVOID lpAddress,
   _In_     wb_usize dwSize,
@@ -598,7 +603,7 @@ LPVOID WINAPI VirtualAlloc(
   _In_     DWORD  flProtect
 );
 
-wbi__WindowsExtern
+wbi__SystemExtern
 BOOL WINAPI VirtualFree(
   _In_ LPVOID lpAddress,
   _In_ wb_usize dwSize,
@@ -677,22 +682,19 @@ WB_ALLOC_BACKEND_API
 wb_MemoryInfo wb_getMemoryInfo()
 {
 	SYSTEM_INFO systemInfo;
+	wb_MemoryInfo info;
 	GetSystemInfo(&systemInfo);
-	wb_usize pageSize = systemInfo.dwPageSize;
+	wb_usize pageSize, localMem, totalMem;
+	int ret;
+	pageSize = systemInfo.dwPageSize;
 
-	wb_usize localMem = 0;
-	wb_usize totalMem = 0;
-	wb_usize ret = GetPhysicallyInstalledSystemMemory(&localMem);
+	localMem = 0;
+	totalMem = 0;
+	ret = GetPhysicallyInstalledSystemMemory(&localMem);
 	if(ret) {
 		totalMem = localMem * 1024;
 	}
-
-	wb_MemoryInfo info; 
-	/*{
-		totalMem, wb_CalcMegabytes(1), pageSize,
-		wb_Read | wb_Write
-	};*/
-
+	
 	info.totalMemory = totalMem;
 	info.commitSize = wb_CalcMegabytes(1);
 	info.pageSize = pageSize;
@@ -746,15 +748,22 @@ struct sysinfo
 	wbi__u64 totalHigh;
 	wbi__u64 freeHigh;
 	wbi__u32 memUnit;
+#ifdef WB_ALLOC_POSIX_SYSINFO_PADDING
 	char _f[20-2*sizeof(long)-sizeof(int)];
-};
-extern int sysinfo(struct sysinfo* info);
 #endif
-extern void* mmap(void* addr, wb_usize len, int prot,
+};
+wbi__SystemExtern
+int sysinfo(struct sysinfo* info);
+#endif
+wbi__SystemExtern
+void* mmap(void* addr, wb_usize len, int prot,
 		int flags, int fd, off_t offset);
-extern int munmap(void* addr, wb_usize len);
-extern int msync(void* addr, wb_usize len, int flags);
-extern long sysconf(int name);
+wbi__SystemExtern
+int munmap(void* addr, wb_usize len);
+wbi__SystemExtern
+int msync(void* addr, wb_usize len, int flags);
+wbi__SystemExtern
+long sysconf(int name);
 
 #ifdef WB_ALLOC_IMPLEMENTATION
 WB_ALLOC_BACKEND_API
@@ -791,15 +800,16 @@ WB_ALLOC_BACKEND_API
 wb_MemoryInfo wb_getMemoryInfo()
 {
 	struct sysinfo si;
+	wb_usize totalMem, pageSize;
+	wb_MemoryInfo info;
 	sysinfo(&si);
-	wb_usize totalMem = si.totalram;
-	wb_usize pageSize = sysconf(_SC_PAGESIZE);
+	totalMem = si.totalram;
+	pageSize = sysconf(_SC_PAGESIZE);
 
-
-	wb_MemoryInfo info = {
-		totalMem, wb_CalcMegabytes(1), pageSize, 8,
-		wb_Read | wb_Write
-	};
+	info.totalMemory = totalMem;
+	info.commitSize = wb_CalcMegabytes(1);
+	info.pageSize = pageSize;
+	info.commitFlags = wb_Read | wb_Write;
 	return info;
 
 }
@@ -847,6 +857,7 @@ void wb_arenaFixedSizeInit(wb_MemoryArena* arena,
 WB_ALLOC_API 
 void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_flags flags)
 {
+	void* ret;
 #ifndef WB_ALLOC_NO_ZERO_ON_INIT
 	WB_ALLOC_MEMSET(arena, 0, sizeof(wb_MemoryArena));
 #endif
@@ -865,7 +876,7 @@ void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_flags flags)
 	arena->name = "arena";
 	arena->info = info;
 	arena->start = wbi__allocateVirtualSpace(info.totalMemory);
-	void* ret = wbi__commitMemory(arena->start,
+	ret = wbi__commitMemory(arena->start,
 			info.commitSize,
 			info.commitFlags);
 	if(!ret) {
@@ -884,6 +895,9 @@ WB_ALLOC_API
 void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size, 
 		WB_ALLOC_EXTENDED_INFO extended)
 {
+	void *oldHead, *ret;
+	wb_usize newHead, toExpand;
+
 	if(arena->flags & wb_FlagArenaStack) {
 		size += sizeof(WB_ALLOC_STACK_PTR);
 	}
@@ -892,8 +906,6 @@ void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size,
 		size += sizeof(WB_ALLOC_EXTENDED_INFO);
 	}
 
-	void *oldHead, *ret;
-	wb_usize newHead, toExpand;
 	oldHead = arena->head;
 	newHead = wb_alignTo((wb_isize)arena->head + size, arena->align);
 
@@ -916,13 +928,16 @@ void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size,
 	}
 
 	if(arena->flags & wb_FlagArenaStack) {
-		WB_ALLOC_STACK_PTR* head = (WB_ALLOC_STACK_PTR*)newHead;
+		WB_ALLOC_STACK_PTR* head;
+		head = (WB_ALLOC_STACK_PTR*)newHead;
+		
 		head--;
 		*head = (WB_ALLOC_STACK_PTR)oldHead;
 	}
 	
 	if(arena->flags & wb_FlagArenaExtended) {
-		WB_ALLOC_EXTENDED_INFO* head = (WB_ALLOC_EXTENDED_INFO*)oldHead;
+		WB_ALLOC_EXTENDED_INFO* head;
+		head = (WB_ALLOC_EXTENDED_INFO*)oldHead;
 		*head = extended;
 		head++;
 		oldHead = (void*)head;
@@ -942,6 +957,8 @@ void* wb_arenaPush(wb_MemoryArena* arena, wb_isize size)
 WB_ALLOC_API 
 void wb_arenaPop(wb_MemoryArena* arena)
 {
+	wb_usize prevHeadPtr;
+	void* newHead;
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
 	if(!(arena->flags & wb_FlagArenaStack)) {
 		WB_ALLOC_ERROR_HANDLER(
@@ -952,15 +969,16 @@ void wb_arenaPop(wb_MemoryArena* arena)
 #endif
 
 	
-	wb_usize prevHeadPtr = (wb_isize)arena->head - sizeof(WB_ALLOC_STACK_PTR);
-	void* newHead = (void*)(*(WB_ALLOC_STACK_PTR*)prevHeadPtr);
+	prevHeadPtr = (wb_isize)arena->head - sizeof(WB_ALLOC_STACK_PTR);
+	newHead = (void*)(*(WB_ALLOC_STACK_PTR*)prevHeadPtr);
 	if((wb_isize)newHead <= (wb_isize)arena->start) {
 		arena->head = arena->start;
 		return;
 	}
 
 	if(!(arena->flags & wb_FlagArenaNoZeroMemory)) {
-		wb_usize size = (wb_isize)arena->head - (wb_isize)newHead;
+		wb_usize size;
+		size = (wb_isize)arena->head - (wb_isize)newHead;
 		if(size > 0) {
 			WB_ALLOC_MEMSET(newHead, 0, size);
 		}
@@ -972,6 +990,7 @@ void wb_arenaPop(wb_MemoryArena* arena)
 WB_ALLOC_API 
 wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags)
 {
+	wb_MemoryArena arena, *strapped;
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
 	if(flags & wb_FlagArenaFixedSize) {
 		WB_ALLOC_ERROR_HANDLER(
@@ -982,9 +1001,8 @@ wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags)
 	}
 #endif
 
-	wb_MemoryArena arena;
 	wb_arenaInit(&arena, info, flags);
-	wb_MemoryArena* strapped = (wb_MemoryArena*)
+	strapped = (wb_MemoryArena*)
 		wb_arenaPush(&arena, sizeof(wb_MemoryArena) + 16);
 	*strapped = arena;
 	if(flags & wb_FlagArenaStack) {
@@ -992,7 +1010,6 @@ wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags)
 		*((WB_ALLOC_STACK_PTR*)(strapped->head) - 1) = 
 			(WB_ALLOC_STACK_PTR)strapped->head;
 	}
-
 	
 	return strapped;
 }
@@ -1001,9 +1018,9 @@ WB_ALLOC_API
 wb_MemoryArena* arenaFixedSizeBootstrap(void* buffer, wb_usize size,
 		wb_flags flags)
 {
-	wb_MemoryArena arena;
+	wb_MemoryArena arena, *strapped;
 	wb_arenaFixedSizeInit(&arena, buffer, size, flags | wb_FlagArenaFixedSize);
-	wb_MemoryArena* strapped = (wb_MemoryArena*)
+	strapped = (wb_MemoryArena*)
 		wb_arenaPush(&arena, sizeof(wb_MemoryArena) + 16);
 	*strapped = arena;
 	if(flags & wb_FlagArenaStack) {
@@ -1027,9 +1044,10 @@ void wb_arenaStartTemp(wb_MemoryArena* arena)
 WB_ALLOC_API 
 void wb_arenaEndTemp(wb_MemoryArena* arena)
 {
+	wb_isize size;
 	if(!arena->tempStart) return;
 	arena->head = (void*)wb_alignTo((wb_isize)arena->head, arena->info.pageSize);
-	wb_isize size = (wb_isize)arena->head - (wb_isize)arena->tempStart;
+	size = (wb_isize)arena->head - (wb_isize)arena->tempStart;
 
 	/* NOTE(will): if you have an arena with flags 
 	 * 	ArenaNoRecommit | ArenaNoZeroMemory
@@ -1249,8 +1267,9 @@ wb_TaggedHeap* wb_taggedBootstrap(wb_MemoryInfo info,
 {
 	wb_TaggedHeap* strapped;
 	wb_TaggedHeap heap;
+	wb_MemoryArena* arena;
 	info.commitSize = wb_calcTaggedHeapSize(arenaSize, 8, 1);
-	wb_MemoryArena* arena = wb_arenaBootstrap(info, 
+	arena = wb_arenaBootstrap(info, 
 			((flags & wb_FlagTaggedHeapNoZeroMemory) ? 
 			wb_FlagArenaNoZeroMemory :
 			wb_FlagArenaNormal));
@@ -1299,10 +1318,11 @@ WB_ALLOC_API
 void wbi__taggedArenaSortBySize(wbi__TaggedHeapArena** array, wb_isize count)
 {
 #define wbi__arenaSize(arena) ((wb_isize)arena->head - (wb_isize)arena->head)
-	for(wb_isize i = 1; i < count; ++i) {
-		wb_isize j = i - 1;
+	wb_isize i, j, minSize;
+	for(i = 1; i < count; ++i) {
+		j = i - 1;
 
-		wb_isize minSize = wbi__arenaSize(array[i]);
+		minSize = wbi__arenaSize(array[i]);
 		if(wbi__arenaSize(array[j]) > minSize) {
 			wbi__TaggedHeapArena* temp = array[i];
 			while((j >= 0) && (wbi__arenaSize(array[j]) > minSize)) {
@@ -1399,7 +1419,7 @@ WB_ALLOC_API
 T* wb_arenaPushEx(wb_MemoryArena* arena, 
 		WB_ALLOC_EXTENDED_INFO extended)
 {
-	return reinterpret_cast<T*>wb_arenaPushEx(arena, sizeof(T) * n, extended);
+	return reinterpret_cast<T*>(wb_arenaPushEx(arena, sizeof(T) * n, extended));
 }
 
 template<typename T, int n>
@@ -1460,7 +1480,9 @@ T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag)
 #endif
 
 #ifndef WB_ALLOC_NO_DISABLE_STUPID_MSVC_WARNINGS
+#ifdef _MSC_VER
 #pragma warning(pop)
+#endif
 #endif
 
 /*

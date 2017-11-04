@@ -8,7 +8,9 @@
 #define WB_ALLOC_CPLUSPLUS_FEATURES
 #include "wb_alloc.h"
 
+#ifdef _MSC_VER
 #pragma warning(disable:189)
+#endif
 int main()
 {
 	int i;

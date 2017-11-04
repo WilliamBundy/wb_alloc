@@ -1,10 +1,13 @@
 
 /* Who needs that crufty old C runtime anyway? */
+/* Note: I don't know how to kick the CRT habit with gcc/clang, so this 
+ * is really only designed to be run with MSVC and in a debugger so far. */
 
 /* hashtag-professional-programming */
 #define NULL ((void*)0)
 
-/* So that we see some output */
+/* So that we see some output; some is better than none, but this 
+ * won't print out any of the numbers */
 void OutputDebugStringA(char* lpOutputString);
 #define printf(x, ...) OutputDebugStringA(x)
 

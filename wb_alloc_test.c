@@ -6,17 +6,27 @@
 #define WB_ALLOC_IMPLEMENTATION
 #include "wb_alloc.h"
 
+#ifdef _MSC_VER
 /* Disable unused variable warnings on MSVC */
 #pragma warning(disable:189)
+#endif
 int main()
 {
 	int i;
+	wb_MemoryInfo info;
+	wb_MemoryArena* arena;
+	wb_MemoryPool* pool;
+	wb_TaggedHeap* heap;
+	int *numbers1, *numbers2, *numbers3, *numbers4;
+	wb_usize* soManyNumbers[100];
+	wb_usize* memoryView;
+	wb_usize* aBlock, *bBlock, *cBlock;
 
 	printf("wb_alloc: C test\n");
 	/* MemoryInfo contains the information about the system's 
 	   total memory, page size, and sets some defaults about the 
 	   amount of memory committed at once */
-	wb_MemoryInfo info = wb_getMemoryInfo();
+	info = wb_getMemoryInfo();
 	printf("  Physical Memory: %zukb\n"
 		   "  Page Size......: %zukb\n"
 		   "  Commit Size____: %zukb\n\n", 
@@ -27,13 +37,18 @@ int main()
 	printf("Memory Arena test\n");
 	/* Bootstrapping the arena means that it allocates the memory
 	   for itself, then stores its own struct at the beginning */
-	wb_MemoryArena* arena = wb_arenaBootstrap(info, wb_FlagArenaNormal);
+	arena = wb_arenaBootstrap(info, wb_FlagArenaNormal);
 
 	/* Make some room for numbers! */
-	int* numbers1 = wb_arenaPush(arena, sizeof(int) * 10);
-	int* numbers2 = wb_arenaPush(arena, sizeof(int) * 20);
-	int* numbers3 = wb_arenaPush(arena, sizeof(int) * 40);
-	int* numbers4 = wb_arenaPush(arena, sizeof(int) * 80);
+	numbers1 = wb_arenaPush(arena, sizeof(int) * 10);
+	numbers2 = wb_arenaPush(arena, sizeof(int) * 20);
+	numbers3 = wb_arenaPush(arena, sizeof(int) * 40);
+	numbers4 = wb_arenaPush(arena, sizeof(int) * 80);
+
+	/* Warnings are dumb */
+	numbers2[0] = 0;
+	numbers3[0] = 0;
+	numbers4[0] = 0;
 
 	for(i = 0; i < 150; ++i) {
 		numbers1[i] = 150 - i;
@@ -61,10 +76,10 @@ int main()
 	printf("(can you see the free list?)\n");
 	/* Internally, the pool creates a memory arena and does the same
 	 * trick the arena does. */
-	wb_MemoryPool* pool = wb_poolBootstrap(info, 8, wb_FlagPoolNormal);
+	pool = wb_poolBootstrap(info, 8, wb_FlagPoolNormal);
 
 	/* Get pointers to numbers out of the pool, give them some funky values */
-	wb_usize* soManyNumbers[100];
+	/* wb_usize* soManyNumbers[100]; */
 	for(i = 0; i < 100; ++i) {
 		soManyNumbers[i] = wb_poolRetrieve(pool);
 		*soManyNumbers[i] = 4096 - (i + 1) * 4;
@@ -104,7 +119,7 @@ int main()
 #define Tag_C 2
 
 	/* This behaves very similarly to the other bootstrap functions */
-	wb_TaggedHeap* heap = wb_taggedBootstrap(
+	heap = wb_taggedBootstrap(
 			info,
 			sizeof(wb_usize) * 65, 
 			/* normally the arena size would be 
@@ -112,13 +127,13 @@ int main()
 			wb_FlagTaggedHeapNormal);
 
 	/* This'll allow us to neatly print out the memory layout */
-	wb_usize* memoryView = heap->pool.slots;
+	memoryView = heap->pool.slots;
 
 
 	/* Allocate some tagged blocks... */
-	wb_usize* aBlock = wb_taggedAlloc(heap, Tag_A, sizeof(wb_usize) * 64);
-	wb_usize* bBlock = wb_taggedAlloc(heap, Tag_B, sizeof(wb_usize) * 64);
-	wb_usize* cBlock = wb_taggedAlloc(heap, Tag_C, sizeof(wb_usize) * 64);
+	aBlock = wb_taggedAlloc(heap, Tag_A, sizeof(wb_usize) * 64);
+	bBlock = wb_taggedAlloc(heap, Tag_B, sizeof(wb_usize) * 64);
+	cBlock = wb_taggedAlloc(heap, Tag_C, sizeof(wb_usize) * 64);
 
 	/* ...and put recognizable patterns in them */
 	for(i = 0; i < 64; ++i) {
