@@ -786,6 +786,7 @@ int __cdecl sysinfo(struct sysinfo* info)
 	mib[1] = HW_MEMSIZE;
 	sysctl(mib, 2, &eightByte, &size, NULL, 0);
 	info->totalram = eightByte;
+	return 0;
 }
 
 #endif
