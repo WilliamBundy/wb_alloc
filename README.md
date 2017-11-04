@@ -8,9 +8,9 @@
 - Easy to use without the CRT or malloc.
 - Doesn't include library headers if you don't need it to.
 - Doesn't include operating system headers at all.
-- Complies as C89 and C++.
+- Compiles as C89 and C++.
 - Templatized versions of allocation functions for C++ for easier memory
-  saftey (use `WB_ALLOC_CPLUSPLUS_FEATURES` to enable these).
+  safety (use `WB_ALLOC_CPLUSPLUS_FEATURES` to enable these).
 
 ## Current Status
 
