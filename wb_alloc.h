@@ -515,7 +515,7 @@ void wb_taggedInit(
 		wb_flags flags);
 
 WB_ALLOC_API 
-wb_TaggedHeap* wb_taggedBoostrap(wb_MemoryInfo info, 
+wb_TaggedHeap* wb_taggedBootstrap(wb_MemoryInfo info, 
 		wb_isize arenaSize, 
 		wb_flags flags);
 
@@ -630,29 +630,31 @@ void* wbi__allocateVirtualSpace(wb_usize size)
 WB_ALLOC_BACKEND_API
 void* wbi__commitMemory(void* addr, wb_usize size, wb_flags flags)
 {
-	wb_flags newFlags = 0;
+	DWORD newFlags = 0;
 	if(flags & wb_Read) {
 		if(flags & wb_Write) {
 			if(flags & wb_Execute) {
 				newFlags = PAGE_EXECUTE_READWRITE;
 			}
 			newFlags = PAGE_READWRITE;
-		}
-		if(flags & wb_Execute) {
+		} else if(flags & wb_Execute) {
 			newFlags = PAGE_EXECUTE_READ;
+		} else {
+			newFlags = PAGE_READONLY;
 		}
-		newFlags = PAGE_READONLY;
 	} else if(flags & wb_Write) {
 		if(flags & wb_Execute) {
 			newFlags = PAGE_EXECUTE_READWRITE;
+		} else {
+			newFlags = PAGE_READWRITE;
 		}
-		newFlags = PAGE_READWRITE;
 	} else if(flags & wb_Execute) {
 		newFlags = PAGE_EXECUTE;
+	} else {
+		newFlags = PAGE_NOACCESS;
 	}
-	newFlags = PAGE_NOACCESS;
 
-    return VirtualAlloc(addr, size, MEM_COMMIT, (DWORD)newFlags);
+    return VirtualAlloc(addr, size, MEM_COMMIT, newFlags);
 }
  
 WB_ALLOC_BACKEND_API
@@ -676,7 +678,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 {
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
-	wb_isize pageSize = systemInfo.dwPageSize;
+	wb_usize pageSize = systemInfo.dwPageSize;
 
 	wb_usize localMem = 0;
 	wb_usize totalMem = 0;
@@ -685,10 +687,16 @@ wb_MemoryInfo wb_getMemoryInfo()
 		totalMem = localMem * 1024;
 	}
 
-	wb_MemoryInfo info = {
+	wb_MemoryInfo info; 
+	/*{
 		totalMem, wb_CalcMegabytes(1), pageSize,
 		wb_Read | wb_Write
-	};
+	};*/
+
+	info.totalMemory = totalMem;
+	info.commitSize = wb_CalcMegabytes(1);
+	info.pageSize = pageSize;
+	info.commitFlags = wb_Read | wb_Write;
 	return info;
 
 }
@@ -962,14 +970,14 @@ void wb_arenaPop(wb_MemoryArena* arena)
 }
 
 WB_ALLOC_API 
-wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, int flags)
+wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags)
 {
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
 	if(flags & wb_FlagArenaFixedSize) {
 		WB_ALLOC_ERROR_HANDLER(
 				"can't create a fixed-size arena with arenaBootstrap\n"
-				"use arenaFixedSizeBoostrap instead.",
-				arena, "arena");
+				"use arenaFixedSizeBootstrap instead.",
+				NULL, "arena");
 		return NULL;
 	}
 #endif
@@ -1229,13 +1237,13 @@ void wb_taggedInit(wb_TaggedHeap* heap, wb_MemoryArena* arena,
 	wb_poolInit(&heap->pool, arena, 
 			internalArenaSize + sizeof(wbi__TaggedHeapArena), 
 			wb_FlagPoolNormal | wb_FlagPoolNoDoubleFreeCheck | 
-			(flags & wb_FlagTaggedHeapNoZeroMemory) ? 
+			((flags & wb_FlagTaggedHeapNoZeroMemory) ? 
 			wb_FlagPoolNoZeroMemory : 
-			0);
+			0));
 }
 
 WB_ALLOC_API
-wb_TaggedHeap* wb_taggedBoostrap(wb_MemoryInfo info, 
+wb_TaggedHeap* wb_taggedBootstrap(wb_MemoryInfo info, 
 		wb_isize arenaSize,
 		wb_flags flags)
 {

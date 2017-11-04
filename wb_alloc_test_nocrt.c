@@ -1,8 +1,42 @@
-/* This is provided as a short demo on how each allocator in 
- * wb_alloc works and how to do a simple initialization for them
- */
-#include <stdio.h>
 
+/* Who needs that crufty old C runtime anyway? */
+
+/* hashtag-professional-programming */
+#define NULL ((void*)0)
+
+/* So that we see some output */
+void OutputDebugStringA(char* lpOutputString);
+#define printf(x, ...) OutputDebugStringA(x)
+
+/* The default error handler uses fprintf to stderr, neither of which 
+ * we have right now */
+#define WB_ALLOC_ERROR_HANDLER
+
+/* Who came up with size_t anyway? */
+#define WB_ALLOC_CUSTOM_INTEGER_TYPES
+typedef unsigned __int64 wb_usize;
+typedef __int64 wb_isize;
+typedef wb_isize wb_flags;
+
+/* These things are kinda important */
+void naiveMemset(void* dest_in, char v, wb_usize size)
+{
+	char* dest = dest_in;
+	while(size--) {
+		*dest = v;
+		dest++;
+	}
+}
+
+#pragma warning(disable:706)
+void naiveMemcpy(char* dest_in, char* src_in, wb_usize size)
+{
+	char* dest = dest_in, *src = src_in;
+	while(size-- && (*dest++ = *src++));
+}
+
+#define WB_ALLOC_MEMSET(x, y, z) naiveMemset(x, y, z)
+#define WB_ALLOC_MEMCPY(x, y, z) naiveMemcpy(x, y, z)
 #define WB_ALLOC_IMPLEMENTATION
 #include "wb_alloc.h"
 
@@ -162,3 +196,8 @@ int main()
 	return 0;
 }
 
+void mainCRTStartup()
+{
+	main();
+	//Exit();
+}

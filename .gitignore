@@ -3,3 +3,8 @@
 *.ilk
 *.pdb
 
+.vs/
+.vs/*
+
+Debug/
+
