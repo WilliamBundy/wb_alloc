@@ -199,15 +199,14 @@
 #if !(defined(WB_ALLOC_POSIX) || defined(WB_ALLOC_WINDOWS))
 #ifdef _MSC_VER
 #define WB_ALLOC_WINDOWS 
-#else
+#endif
 #ifdef __unix__
 #define WB_ALLOC_POSIX
-#else
+#endif
 #ifdef __APPLE__
 #define WB_ALLOC_POSIX
 #endif
-#endif
-#endif
+#endif 
 
 #ifndef WB_ALLOC_API
 #ifdef WB_ALLOC_IMPLEMENTATION
@@ -688,6 +687,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 	wb_MemoryInfo info;
 	GetSystemInfo(&systemInfo);
 	wb_usize pageSize, localMem, totalMem;
+	int ret;
 
 	pageSize = systemInfo.dwPageSize;
 
@@ -728,7 +728,9 @@ wb_MemoryInfo wb_getMemoryInfo()
 #endif
 
 #ifndef __off_t_defined
+#ifndef __APPLE__
 typedef wb_usize off_t;
+#endif
 #endif
  
 #ifndef _SYS_SYSINFO_H
