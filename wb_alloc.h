@@ -202,6 +202,9 @@
 #else
 #ifdef __unix__
 #define WB_ALLOC_POSIX
+#else
+#ifdef __APPLE__
+#define WB_ALLOC_POSIX
 #endif
 #endif
 #endif
@@ -685,7 +688,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 	wb_MemoryInfo info;
 	GetSystemInfo(&systemInfo);
 	wb_usize pageSize, localMem, totalMem;
-	int ret;
+
 	pageSize = systemInfo.dwPageSize;
 
 	localMem = 0;
