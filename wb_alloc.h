@@ -710,11 +710,12 @@ wb_MemoryInfo wb_getMemoryInfo()
 #endif
 
 #ifdef WB_ALLOC_POSIX
+#ifndef __APPLE__
 #ifndef PROT_NONE
 #define PROT_NONE 0
 #define PROT_READ 0x1
 #define PROT_WRITE 0x2
-#define PROT_EXECUTE 0x4
+#define PROT_EXEC 0x4
 #define MAP_SHARED 0x1
 #define MAP_PRIVATE 0x2
 #define MAP_FIXED 0x10
@@ -729,8 +730,26 @@ wb_MemoryInfo wb_getMemoryInfo()
 #endif
 
 #ifndef __off_t_defined
-#ifndef __APPLE__
 typedef wb_usize off_t;
+#endif
+
+#else
+#ifndef PROT_NONE
+#define PROT_READ 1
+#define PROT_WRITE 2
+#define PROT_EXEC 4
+#define PROT_NONE 0
+#define MAP_SHARED 1
+#define MAP_PRIVATE 2
+#define MAP_FIXED 16
+#define MAP_ANON 4096
+#define MS_SYNC 16
+#define MS_ASYNC 1
+#define MS_INVALIDATE 2
+#endif
+
+#ifndef _SC_PAGESIZE
+#define _SC_PAGESIZE 29
 #endif
 #endif
  
@@ -778,7 +797,7 @@ int sysctl(int *name,
 WB_ALLOC_BACKEND_API
 int __cdecl sysinfo(struct sysinfo* info)
 {
-	int mib[2], fourByte;
+	int mib[2];
 	wb_usize size, eightByte;
 
 	size = sizeof(wb_usize);
@@ -787,11 +806,13 @@ int __cdecl sysinfo(struct sysinfo* info)
 	sysctl(mib, 2, &eightByte, &size, NULL, 0);
 	info->totalram = eightByte;
 
+#if 0
 	mib[0] = CTL_HW;
 	mib[1] = HW_PAGESIZE;
 	size = sizeof(int);
 	sysctl(mib, 2, &fourByte, &size, NULL, 0);
 	info->freeMemory = (wbi__u64)fourByte;
+#endif
 	return 0;
 }
 
@@ -845,13 +866,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 	wb_MemoryInfo info;
 	sysinfo(&si);
 	totalMem = si.totalram;
-#ifdef __APPLE__
-	/* This is essentially a hack, but we need to 
-	 * follow a different path on OSX*/
-	pageSize = si.freeMemory;
-#else
 	pageSize = sysconf(_SC_PAGESIZE);
-#endif
 
 	info.totalMemory = totalMem;
 	info.commitSize = wb_CalcMegabytes(1);
