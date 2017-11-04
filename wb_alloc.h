@@ -1043,9 +1043,11 @@ void wb_arenaEndTemp(wb_MemoryArena* arena)
 WB_ALLOC_API 
 void wb_arenaClear(wb_MemoryArena* arena)
 {
+	wb_MemoryArena local = *arena;
 	wb_isize size = (wb_isize)arena->end - (wb_isize)arena->start;
-	wbi__decommitMemory(arena->start, size);
-	wbi__commitMemory(arena->start, size, arena->info.commitFlags);
+	wbi__decommitMemory(local.start, size);
+	wbi__commitMemory(local.start, size, local.info.commitFlags);
+	*arena = local;
 }
 
 WB_ALLOC_API
@@ -1226,7 +1228,7 @@ void wb_taggedInit(wb_TaggedHeap* heap, wb_MemoryArena* arena,
 	heap->arenaSize = internalArenaSize;
 	wb_poolInit(&heap->pool, arena, 
 			internalArenaSize + sizeof(wbi__TaggedHeapArena), 
-			wb_FlagPoolNormal |
+			wb_FlagPoolNormal | wb_FlagPoolNoDoubleFreeCheck | 
 			(flags & wb_FlagTaggedHeapNoZeroMemory) ? 
 			wb_FlagPoolNoZeroMemory : 
 			0);
