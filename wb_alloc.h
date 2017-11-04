@@ -759,6 +759,26 @@ struct sysinfo
 };
 wbi__SystemExtern
 int sysinfo(struct sysinfo* info);
+
+#ifdef __APPLE__
+#define CTL_HW 6
+#define HW_PAGESIZE 7
+#define HW_PHYSMEM 5
+#define HW_MEMSIZE 24
+
+WB_ALLOC_BACKEND_API
+int sysinfo(struct sysinfo* info)
+{
+	int mib[2];
+	wb_usize size, eightByte;
+
+	size = sizeof(wb_usize);
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+	sysctl(mib, 2, &eightByte, &size, NULL, 0);
+	info->totalRam = eightByte;
+}
+
 #endif
 wbi__SystemExtern
 void* mmap(void* addr, wb_usize len, int prot,
@@ -818,6 +838,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 	return info;
 
 }
+#endif
 #endif
 #endif
 #endif
