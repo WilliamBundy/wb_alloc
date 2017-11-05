@@ -1,6 +1,8 @@
 /* This is provided as a short demo on how each allocator in 
  * wb_alloc works and how to do a simple initialization for them
  */
+
+/* This is free and unencumbered software released into the public domain. */
 #include <stdio.h>
 
 #define WB_ALLOC_IMPLEMENTATION

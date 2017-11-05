@@ -1,3 +1,4 @@
+/* This is free and unencumbered software released into the public domain. */
 
 /* Who needs that crufty old C runtime anyway? */
 /* Note: I don't know how to kick the CRT habit with gcc/clang, so this 

@@ -2,6 +2,9 @@
  * used in the same tests as the C version. Comments have been removed,
  * read the C version first.
  */
+
+/* This is free and unencumbered software released into the public domain. */
+
 #include <stdio.h>
 
 #define WB_ALLOC_IMPLEMENTATION
