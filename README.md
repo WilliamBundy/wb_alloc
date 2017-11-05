@@ -23,82 +23,87 @@ functions as your OS requires.
 If you run into a problem where the allocators fail, try including your
 system's headers for virtual memory and system info. 
 	
-	/* Windows */
-	#include <Windows.h>
+```C
+/* Windows */
+#include <Windows.h>
 
-	/* Linux */
-	#include <sys/sysinfo.h>
-	#include <unistd.h>
-	
-	/* macOS */ 
-	#include <sys/sysctl.h>
-	#include <unistd.h>
+/* Linux */
+#include <sys/sysinfo.h>
+#include <unistd.h>
 
+/* macOS */ 
+#include <sys/sysctl.h>
+#include <unistd.h>
+```
 
 There are also some convenience features missing, such as being able to
 directly free/clear a memory pool and tagged heap.
 
 ## Demo
 
-	#include <stdio.h> 
+```C
+#include <stdio.h> 
 
-	#define WB_ALLOC_IMPLEMENTATION
-	#include "wb_alloc.h"
+#define WB_ALLOC_IMPLEMENTATION
+#include "wb_alloc.h"
 
-	int main()
-	{
-		wb_MemoryInfo info;
-		wb_MemoryArena* arena;
-		int i;
+int main()
+{
+	wb_MemoryInfo info;
+	wb_MemoryArena* arena;
+	int i;
 
-		/* MemoryInfo contains the information about the system's 
-		   total memory, page size, and sets some defaults about the 
-		   amount of memory committed at once */
-		info = wb_getMemoryInfo();
+	/* MemoryInfo contains the information about the system's 
+	   total memory, page size, and sets some defaults about the 
+	   amount of memory committed at once */
+	info = wb_getMemoryInfo();
 
-		/* Bootstrapping the arena means that it allocates the memory
-		   for itself, then stores its own struct at the beginning */
-		arena = wb_arenaBootstrap(info, wb_FlagArenaNormal);
+	/* Bootstrapping the arena means that it allocates the memory
+	   for itself, then stores its own struct at the beginning */
+	arena = wb_arenaBootstrap(info, wb_FlagArenaNormal);
 
-		/* Make some room for numbers! */
-		int* numbers1 = wb_arenaPush(arena, sizeof(int) * 100);
-		int* numbers2 = wb_arenaPush(arena, sizeof(int) * 200);
-		int* numbers3 = wb_arenaPush(arena, sizeof(int) * 400);
-		int* numbers4 = wb_arenaPush(arena, sizeof(int) * 800);
+	/* Make some room for numbers! */
+	int* numbers1 = wb_arenaPush(arena, sizeof(int) * 100);
+	int* numbers2 = wb_arenaPush(arena, sizeof(int) * 200);
+	int* numbers3 = wb_arenaPush(arena, sizeof(int) * 400);
+	int* numbers4 = wb_arenaPush(arena, sizeof(int) * 800);
 
-		for(i = 0; i < 1500; ++i) {
-			numbers1[i] = 1500 - i;
-		}
-
-		for(i = 0; i < 1500; ++i) {
-			printf("%d ", numbers[i]);
-		}
-		printf("\n\n");
-
-		/* Clearing the arena decommits all its committed pages then
-		   recommits them, which is guaranteed on modern operating
-		   systems to zero them */
-		wb_arenaClear(arena);
-		wb_arenaPush(arena, sizeof(int) * 1500);
-
-		for(i = 0; i < 1500; ++i) {
-			printf("%d\n", numbers[i]);
-		}
-
-		return 0;
+	for(i = 0; i < 1500; ++i) {
+		numbers1[i] = 1500 - i;
 	}
+
+	for(i = 0; i < 1500; ++i) {
+		printf("%d ", numbers[i]);
+	}
+	printf("\n\n");
+
+	/* Clearing the arena decommits all its committed pages then
+	   recommits them, which is guaranteed on modern operating
+	   systems to zero them */
+	wb_arenaClear(arena);
+	wb_arenaPush(arena, sizeof(int) * 1500);
+
+	for(i = 0; i < 1500; ++i) {
+		printf("%d\n", numbers[i]);
+	}
+
+	return 0;
+}
+```
 
 ## Allocators Included
 
 #### Memory Arena
 
-	void* wb_arenaPush(
-			wb_MemoryArena* arena, 
-			wb_isize size);
-	
-	wb_MemoryArena* wb_arenaBootstrap(
-			wb_MemoryInfo info, 
-			wb_flags flags);
+```C
+void* wb_arenaPush(
+		wb_MemoryArena* arena, 
+		wb_isize size);
+
+wb_MemoryArena* wb_arenaBootstrap(
+		wb_MemoryInfo info, 
+		wb_flags flags);
+```
 
 Inspired by the Handmade Hero memory management structure, my memory arena
 is a variation on a "linear allocator" or a "bump-pointer allocator". It
@@ -126,12 +131,14 @@ These flags may be used together.
 
 #### Memory Pool
 
-	void* wb_poolRetrieve(wb_MemoryPool* pool);
-	void wb_poolRelease(wb_MemoryPool* pool, void* ptr);
+```C
+void* wb_poolRetrieve(wb_MemoryPool* pool);
+void wb_poolRelease(wb_MemoryPool* pool, void* ptr);
 
-	wb_MemoryPool* wb_poolBootstrap(
-			wb_MemoryInfo info,
-			wb_flags flags);
+wb_MemoryPool* wb_poolBootstrap(
+		wb_MemoryInfo info,
+		wb_flags flags);
+```
 
 The memory pool is a simple fixed-size free-list allocator. It allows you
 to freely allocate and free fixed-size objects with no external
@@ -144,17 +151,19 @@ runs out of virtual memory.
 
 #### Tagged Heap
 
-	void* wb_taggedAlloc(
-			wb_TaggedHeap* heap, 
-			wb_isize tag,
-			wb_usize size);
+```C
+void* wb_taggedAlloc(
+		wb_TaggedHeap* heap, 
+		wb_isize tag,
+		wb_usize size);
 
-	void wb_taggedFree(wb_TaggedHeap* heap, wb_isize tag);
+void wb_taggedFree(wb_TaggedHeap* heap, wb_isize tag);
 
-	wb_TaggedHeap* wb_taggedBoostrap(
-			wb_MemoryInfo info, 
-			wb_isize arenaSize, 
-			wb_flags flags);
+wb_TaggedHeap* wb_taggedBoostrap(
+		wb_MemoryInfo info, 
+		wb_isize arenaSize, 
+		wb_flags flags);
+```
 
 This one is inspired by the Naughty Dog GDC talk about using fibers to
 multithread their engine. They mention this as their solution to the
@@ -296,35 +305,37 @@ unpleasant in the calling code. To alleviate this, I have added
 templatized overloads of every function that takes a size or returns
 a pointer, a few of which are listed listed here:
 
-	template<typename T, int n = 1>
-	T* wb_arenaPush(wb_MemoryArena* arena);
+```C++
+template<typename T, int n = 1>
+T* wb_arenaPush(wb_MemoryArena* arena);
 
-	template<typename T>
-	T* wb_poolRetrieve(wb_MemoryPool* pool);
+template<typename T>
+T* wb_poolRetrieve(wb_MemoryPool* pool);
 
-	template<typename T>
-	wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info,
-			wb_flags flags);
+template<typename T>
+wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info,
+		wb_flags flags);
 
-	template<typename T, int n = 1>
-	T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag);
+template<typename T, int n = 1>
+T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag);
 
-	void example(wb_MemoryArena* arena, wb_MemoryInfo info) 
-	{
-		auto numbers = wb_arenaPush<int, 1000>(arena);
-		auto thing10 = wb_arenaPush<Thing>(arena);
-		//   numbers = (int*)wb_arenaPush(arena, sizeof(int) * 1000);
-		//   thing10 = (Thing*)wb_arenaPush(arena, sizeof(Thing));
+void example(wb_MemoryArena* arena, wb_MemoryInfo info) 
+{
+	auto numbers = wb_arenaPush<int, 1000>(arena);
+	auto thing10 = wb_arenaPush<Thing>(arena);
+	//   numbers = (int*)wb_arenaPush(arena, sizeof(int) * 1000);
+	//   thing10 = (Thing*)wb_arenaPush(arena, sizeof(Thing));
 
-		auto thingPool = wb_poolBootstrap<Thing>(info);
+	auto thingPool = wb_poolBootstrap<Thing>(info);
 
-		/* MemoryPools don't actually remember what type they were 
-		   initialized with, so you have to specify on allocation too */
-		auto thing2 = wb_poolRetrieve<Thing>(thingPool);
-		auto thing3 = wb_poolRetrieve<Thing>(thingPool);
-		auto thing4 = wb_poolRetrieve<Thing>(thingPool);
-		//   thing5 = (Thing*)wb_poolRetrieve(thingPool);
-	}
+	/* MemoryPools don't actually remember what type they were 
+	   initialized with, so you have to specify on allocation too */
+	auto thing2 = wb_poolRetrieve<Thing>(thingPool);
+	auto thing3 = wb_poolRetrieve<Thing>(thingPool);
+	auto thing4 = wb_poolRetrieve<Thing>(thingPool);
+	//   thing5 = (Thing*)wb_poolRetrieve(thingPool);
+}
+```
 
 ## Roadmap
 
