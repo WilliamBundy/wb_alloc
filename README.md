@@ -8,15 +8,32 @@
 - Easy to use without the CRT or malloc.
 - Doesn't include library headers if you don't need it to.
 - Doesn't include operating system headers at all.
-- Compiles as C89 and C++.
+- Compiles as C89 and C++ on Windows, Mac, and Linux.
 - Templatized versions of allocation functions for C++ for easier memory
   safety (use `WB_ALLOC_CPLUSPLUS_FEATURES` to enable these).
 
 ## Current Status
 
-As of 11/4/17 or version 0.0.1, the library compiles with no warnings
-under clang and MSVC, however, it is largely untested with regards to
-runtime errors or performance. It should be considered **alpha software**.
+As of version 0.1, the library compiles with no warnings under gcc, clang
+and MSVC, however, it is barely tested, and should be considered **beta
+software**. You may encounter issues on untested OSes such as BSD; your
+best bet is to `#define WB_ALLOC_CUSTOM_BACKEND` and implement the backend
+functions as your OS requires.
+
+If you run into a problem where the allocators fail, try including your
+system's headers for virtual memory and system info. 
+	
+	/* Windows */
+	#include <Windows.h>
+
+	/* Linux */
+	#include <sys/sysinfo.h>
+	#include <unistd.h>
+	
+	/* macOS */ 
+	#include <sys/sysctl.h>
+	#include <unistd.h>
+
 
 There are also some convenience features missing, such as being able to
 directly free/clear a memory pool and tagged heap.
@@ -309,6 +326,16 @@ a pointer, a few of which are listed listed here:
 		//   thing5 = (Thing*)wb_poolRetrieve(thingPool);
 	}
 
+## Roadmap
 
+This library is largely complete for its scope, and mostly needs some
+amount of robust testing. Potentially, I have a few features planned:
 
+- A double ended arena, behaving like the heap/stack behavior we all know.
+- Versions backed by malloc to use quickly if you don't want to use the
+  virtual memory versions.
+- Fixed-size only versions of the allocators for complete memory-source
+  agnosticism.
 
+I'm also considering writing an [Odin](https://github.com/gingerBill/Odin)
+version. 

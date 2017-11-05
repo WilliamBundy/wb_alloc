@@ -6,7 +6,7 @@
  * Three custom allocators that can (hopefully) safely allocate a very large
  * amount of memory for you. Check the warnings below for an explanation
  * 
- * Version 0.0.1 Testing Alpha
+ * Version 0.1 Beta
  */
 
 /* Author: William Bundy 
@@ -20,9 +20,24 @@
  */ 
 
 /* ===========================================================================
- * WARNING -- ALPHA SOFTWARE
+ * WARNING -- BETA SOFTWARE
  * ===========================================================================
- * This is ALPHA software, and has not been tested thoroughly!
+ * At this point, I can guarantee that most things seem to work without error.
+ * I haven't pushed the limits or tested every configuration possible.
+ *
+ * If the application compiles but segfaults, try including the requisite
+ * OS headers!
+ *
+ * #include <Windows.h>
+ *
+ * or
+ *
+ * #include <sys/mman.h>
+ * #include <unistd.h>
+ *
+ * I embed sections of these headers in the document, but they may not match 
+ * what your OS expects. (This is likely especially true of BSD)
+ *
  * Please report all bugs to the github.
  * ===========================================================================
  *
@@ -116,68 +131,6 @@
  * 		need anything special at all
  */
 
-/* These are my personal notes; don't worry too much about them
- *
- * FUTURE(will): write comprehensive test suite for everything
- * 		- So far we've tested each individual thing for "wow look how bad this
- * 		crashes" bugs, but we haven't exactly performed anything rigorous 
- * 		that'd prove that it works under weird edge cases
- *
- * TODO(will): create and standardize on types
- * TODO(will): rename everything, reorganize struct definitions
- * TODO(will): add utility functions for wb_MemoryPool: 
- * 		- some are already implemented but commented out
- * 		- poolClear
- * 		- poolCompact: invalidate pool, but might be good for serialize?
- * 		- poolIterate
- * TODO(will): add utility functions for wb_TaggedHeap
- * 		- Combine arenas? 
- * TODO(will): consider adding ways for wb_MemoryPools to read their elements'
- *	data to make smarter decisions
- *		- Write a flag that denotes an object as "dead" or "alive"
- *		- Invoke a function that reinitializes an object on retrieve
- * TODO(will): scrub those warnings!
- * TODO(will): wb_TaggedHeapZeroOnAllocate //right now we zero on free
- *
- * Memory Arena
- * 		In the Handmade Hero sense, these are linear or "bump'n push" allocators
- * 		Allocate a bunch of memory up front; free the entire arena at once.
- * 		Options allow it to become a stack allocator too, allowing for push/pop
- * 		arenaPush(wb_MemoryArena*, wb_usize) is the main driver
- * 	- Normal: uses virtual memory to expand
- *  - FixedSize: allocates out of a fixed-size buffer 
- * 	- Stack: stores extra information allowing pop operations
- * 	- Extended: stores user-provided information alongside allocations
- * Memory Pool (sits atop an arena)
- * 		"Pools" allocations of same-size objects, with no external fragmentation
- * 		poolRetrieve(wb_MemoryPool*) and poolRelease(wb_MemoryPool*, void*) are 
- * 		the drivers
- *  - Normal: uses a normal arena to expand
- *  - FixedSize: allocates out of a fixed size buffer
- *  - Compacting: moves entries into empty slots
- *
- * Tagged Heap
- * 		Inspired by the Naughty Dog talk, these behave like a pool of fixed-size
- * 		memory arenas. By tagging your allocations, you can then free allocations 
- * 		by that tag.
- * 	- Normal: a memory pool of fixed-size arenas
- * 	- FixedSize: uses a fixed size pooa
- * 	- BestFit
- * 	- NoZeroMemory
- * 	- Clean up NoSetCommitSize
- *
- * BONUS:
- *	- WB_ALLOC_MALLOC_ARENA_ONLY 
- *		- Adds an expanding arena that allocates through malloc.
- * 	- WB_ALLOC_FIXED_SIZE_ONLY if virtual memory sends shivers down your spine.
- * 		- These are different from the other ones:
- * 			- Arena, Stack, Pool, wb_TaggedHeap as individual types.
- * 			- Designed to be as simple and compact as possible.
- * 	- WB_ALLOC_CPLUSPLUS_FEATURES C++isms, because why not? 
- * 		- Templated versions to be more idiomatic C++
- * 		- Member functions! arena->allocate<MyThing>();
- *		- Placement new stuff???
- **/
 #ifndef WB_ALLOC_NO_DISABLE_STUPID_MSVC_WARNINGS
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -267,6 +220,7 @@ typedef wb_isize wb_flags;
 #define wb_CalcMegabytes(x) (wb_CalcKilobytes((wb_usize)x) * 1024)
 #define wb_CalcGigabytes(x) (wb_CalcMegabytes((wb_usize)x) * 1024)
 
+/* These are equivalent to the PROT_READ values and friends */
 #define wb_None 0
 #define wb_Read 1
 #define wb_Write 2
