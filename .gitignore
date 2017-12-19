@@ -3,6 +3,9 @@
 *.ilk
 *.pdb
 
+wb_alloc_test
+wb_alloc_test_cpp
+
 .vs/
 .vs/*
 
