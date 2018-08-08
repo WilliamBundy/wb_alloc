@@ -83,7 +83,7 @@
  * WB_ALLOC_BACKEND_API, which defaults to WB_ALLOC_API.
  *
  * #ifndef WB_ALLOC_CUSTOM_INTEGER_TYPES
- * The library uses wb_usize, wb_isize, and wb_flags. These are typedef'd
+ * The library uses wb_usize, wb_isize, and wb_iflags. These are typedef'd
  * size_t, ptrdiff_t, and int, respectively. Typedef these on your own and 
  * define WB_ALLOC_CUSTOM_INTEGERTYPES to ignore them.
  *
@@ -179,7 +179,7 @@
 #include <stddef.h>
 typedef size_t wb_usize;
 typedef ptrdiff_t wb_isize;
-typedef wb_isize wb_flags;
+typedef wb_isize wb_iflags;
 #endif
 
 
@@ -252,7 +252,7 @@ typedef struct wb_MemoryInfo wb_MemoryInfo;
 struct wb_MemoryInfo
 {
 	wb_usize totalMemory, commitSize, pageSize;
-	wb_flags commitFlags;
+	wb_iflags commitFlags;
 };
 
 typedef struct wb_MemoryArena wb_MemoryArena;
@@ -263,7 +263,7 @@ struct wb_MemoryArena
 	void *tempStart, *tempHead;
 	wb_MemoryInfo info;
 	wb_isize align;
-	wb_flags flags;
+	wb_iflags flags;
 };
 
 typedef struct wb_MemoryPool wb_MemoryPool;
@@ -276,7 +276,7 @@ struct wb_MemoryPool
 	void** freeList;
 	wb_MemoryArena* alloc;
 	wb_isize lastFilled;
-	wb_flags flags;
+	wb_iflags flags;
 };
 
 typedef struct wbi__TaggedHeapArena wbi__TaggedHeapArena;
@@ -296,7 +296,7 @@ struct wb_TaggedHeap
 	wbi__TaggedHeapArena* arenas[WB_ALLOC_TAGGEDHEAP_MAX_TAG_COUNT];
 	wb_MemoryInfo info;
 	wb_usize arenaSize, align;
-	wb_flags flags;
+	wb_iflags flags;
 };
 
 /* Function Prototypes */
@@ -361,14 +361,15 @@ WB_ALLOC_API
 void wb_taggedFree(wb_TaggedHeap* heap, wb_isize tag);
 
 #ifdef WB_ALLOC_CPLUSPLUS_FEATURES
-template<typename T, int n = 1>
+template<typename T>
 WB_ALLOC_API 
 T* wb_arenaPushEx(wb_MemoryArena* arena, 
-		WB_ALLOC_EXTENDED_INFO extended);
+		WB_ALLOC_EXTENDED_INFO extended,
+		int n = 1);
 
-template<typename T, int n = 1>
+template<typename T>
 WB_ALLOC_API 
-T* wb_arenaPush(wb_MemoryArena* arena);
+T* wb_arenaPush(wb_MemoryArena* arena, int n = 1);
 
 template<typename T>
 WB_ALLOC_API 
@@ -382,23 +383,23 @@ void wb_poolRelease(wb_MemoryPool* pool, T* ptr);
 template<typename T>
 WB_ALLOC_API 
 void wb_poolInit(wb_MemoryPool* pool, wb_MemoryArena* alloc, 
-		wb_flags flags);
+		wb_iflags flags);
 
 template<typename T>
 WB_ALLOC_API 
 wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info,
-		wb_flags flags);
+		wb_iflags flags);
 
 template<typename T>
 WB_ALLOC_API 
 wb_MemoryPool* wb_poolFixedSizeBootstrap(
 		void* buffer, wb_usize size,
-		wb_flags flags);
+		wb_iflags flags);
 
 
-template<typename T, int n = 1>
+template<typename T>
 WB_ALLOC_API 
-T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag);
+T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag, int n = 1);
 #endif
 
 
@@ -406,7 +407,7 @@ T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag);
 
 WB_ALLOC_BACKEND_API void* wbi__allocateVirtualSpace(wb_usize size);
 WB_ALLOC_BACKEND_API void* wbi__commitMemory(void* addr, wb_usize size, 
-		wb_flags flags);
+		wb_iflags flags);
 WB_ALLOC_BACKEND_API void wbi__decommitMemory(void* addr, wb_usize size);
 WB_ALLOC_BACKEND_API void wbi__freeAddressSpace(void* addr, wb_usize size);
 WB_ALLOC_BACKEND_API wb_MemoryInfo wb_getMemoryInfo();
@@ -415,18 +416,18 @@ WB_ALLOC_API
 wb_isize wb_alignTo(wb_usize x, wb_usize align);
 
 WB_ALLOC_API 
-void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_flags flags);
+void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_iflags flags);
 WB_ALLOC_API 
-wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags);
+wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_iflags flags);
 
 WB_ALLOC_API 
 void wb_arenaFixedSizeInit(wb_MemoryArena* arena, 
 		void* buffer, wb_isize size,
-		wb_flags flags);
+		wb_iflags flags);
 WB_ALLOC_API 
 wb_MemoryArena* arenaFixedSizeBootstrap(
 		void* buffer, wb_usize size,
-		wb_flags flags);
+		wb_iflags flags);
 
 
 WB_ALLOC_API 
@@ -448,41 +449,41 @@ void wb_poolInit(
 		wb_MemoryPool* pool,
 		wb_MemoryArena* alloc, 
 		wb_usize elementSize, 
-		wb_flags flags);
+		wb_iflags flags);
 
 WB_ALLOC_API 
 wb_MemoryPool* wb_poolBootstrap(
 		wb_MemoryInfo info,
 		wb_isize elementSize, 
-		wb_flags flags);
+		wb_iflags flags);
 
 WB_ALLOC_API 
 wb_MemoryPool* wb_poolFixedSizeBootstrap(
 		wb_isize elementSize, 
 		void* buffer, wb_usize size,
-		wb_flags flags);
+		wb_iflags flags);
 
 
 WB_ALLOC_API wb_isize wb_calcTaggedHeapSize(
 		wb_isize arenaSize, wb_isize arenaCount, 
-		wb_flags bootstrapped);
+		wb_iflags bootstrapped);
 
 WB_ALLOC_API 
 void wb_taggedInit(
 		wb_TaggedHeap* heap,
 		wb_MemoryArena* arena,
 		wb_isize internalArenaSize, 
-		wb_flags flags);
+		wb_iflags flags);
 
 WB_ALLOC_API 
 wb_TaggedHeap* wb_taggedBootstrap(wb_MemoryInfo info, 
 		wb_isize arenaSize, 
-		wb_flags flags);
+		wb_iflags flags);
 
 WB_ALLOC_API 
 wb_TaggedHeap* wb_taggedFixedSizeBootstrap(wb_isize arenaSize, 
 		void* buffer, wb_isize bufferSize, 
-		wb_flags flags);
+		wb_iflags flags);
 
 WB_ALLOC_API 
 void wbi__taggedArenaInit(wb_TaggedHeap* heap, 
@@ -590,7 +591,7 @@ void* wbi__allocateVirtualSpace(wb_usize size)
 }
  
 WB_ALLOC_BACKEND_API
-void* wbi__commitMemory(void* addr, wb_usize size, wb_flags flags)
+void* wbi__commitMemory(void* addr, wb_usize size, wb_iflags flags)
 {
 	DWORD newFlags = 0;
 	if(flags & wb_Read) {
@@ -791,7 +792,7 @@ void* wbi__allocateVirtualSpace(wb_usize size)
 }
  
 WB_ALLOC_BACKEND_API
-void* wbi__commitMemory(void* addr, wb_usize size, wb_flags flags)
+void* wbi__commitMemory(void* addr, wb_usize size, wb_iflags flags)
 {
     void * ptr = mmap(addr, size, flags, MAP_FIXED|MAP_SHARED|MAP_ANON, -1, 0);
     msync(addr, size, MS_SYNC|MS_INVALIDATE);
@@ -852,7 +853,7 @@ wb_isize wb_alignTo(wb_usize x, wb_usize align)
 WB_ALLOC_API 
 void wb_arenaFixedSizeInit(wb_MemoryArena* arena, 
 		void* buffer, wb_isize size, 
-		wb_flags flags)
+		wb_iflags flags)
 {
 #ifndef WB_ALLOC_NO_ZERO_ON_INIT
 	WB_ALLOC_MEMSET(arena, 0, sizeof(wb_MemoryArena));
@@ -872,7 +873,7 @@ void wb_arenaFixedSizeInit(wb_MemoryArena* arena,
 
 
 WB_ALLOC_API 
-void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_flags flags)
+void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_iflags flags)
 {
 	void* ret;
 #ifndef WB_ALLOC_NO_ZERO_ON_INIT
@@ -1005,7 +1006,7 @@ void wb_arenaPop(wb_MemoryArena* arena)
 }
 
 WB_ALLOC_API 
-wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags)
+wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_iflags flags)
 {
 	wb_MemoryArena arena, *strapped;
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
@@ -1033,7 +1034,7 @@ wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_flags flags)
 
 WB_ALLOC_API 
 wb_MemoryArena* arenaFixedSizeBootstrap(void* buffer, wb_usize size,
-		wb_flags flags)
+		wb_iflags flags)
 {
 	wb_MemoryArena arena, *strapped;
 	wb_arenaFixedSizeInit(&arena, buffer, size, flags | wb_FlagArenaFixedSize);
@@ -1104,7 +1105,7 @@ void wb_arenaDestroy(wb_MemoryArena* arena)
 WB_ALLOC_API
 void wb_poolInit(wb_MemoryPool* pool, wb_MemoryArena* alloc, 
 		wb_usize elementSize,
-		wb_flags flags)
+		wb_iflags flags)
 {
 #ifndef WB_ALLOC_NO_ZERO_ON_INIT
 	WB_ALLOC_MEMSET(pool, 0, sizeof(wb_MemoryPool));
@@ -1128,12 +1129,12 @@ void wb_poolInit(wb_MemoryPool* pool, wb_MemoryArena* alloc,
 WB_ALLOC_API
 wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info, 
 		wb_isize elementSize,
-		wb_flags flags)
+		wb_iflags flags)
 {
 	wb_MemoryArena* alloc;
 	wb_MemoryPool* pool;
 
-	wb_flags arenaFlags = 0;
+	wb_iflags arenaFlags = 0;
 	if(flags & wb_FlagPoolFixedSize) {
 		arenaFlags = wb_FlagArenaFixedSize;
 	}
@@ -1149,7 +1150,7 @@ WB_ALLOC_API
 wb_MemoryPool* wb_poolFixedSizeBootstrap(
 		wb_isize elementSize, 
 		void* buffer, wb_usize size, 
-		wb_flags flags)
+		wb_iflags flags)
 {
 	wb_MemoryArena* alloc;
 	wb_MemoryPool* pool;
@@ -1251,7 +1252,7 @@ void wb_poolRelease(wb_MemoryPool* pool, void* ptr)
  */ 
 WB_ALLOC_API
 wb_isize wb_calcTaggedHeapSize(wb_isize arenaSize, wb_isize arenaCount,
-		wb_flags bootstrapped)
+		wb_iflags bootstrapped)
 {
 	return arenaCount * (arenaSize + sizeof(wbi__TaggedHeapArena))
 		+ sizeof(wb_TaggedHeap) * bootstrapped;
@@ -1259,7 +1260,7 @@ wb_isize wb_calcTaggedHeapSize(wb_isize arenaSize, wb_isize arenaCount,
 
 WB_ALLOC_API
 void wb_taggedInit(wb_TaggedHeap* heap, wb_MemoryArena* arena, 
-		wb_isize internalArenaSize, wb_flags flags)
+		wb_isize internalArenaSize, wb_iflags flags)
 {
 #ifndef WB_ALLOC_NO_ZERO_ON_INIT
 	WB_ALLOC_MEMSET(heap, 0, sizeof(wb_TaggedHeap));
@@ -1280,7 +1281,7 @@ void wb_taggedInit(wb_TaggedHeap* heap, wb_MemoryArena* arena,
 WB_ALLOC_API
 wb_TaggedHeap* wb_taggedBootstrap(wb_MemoryInfo info, 
 		wb_isize arenaSize,
-		wb_flags flags)
+		wb_iflags flags)
 {
 	wb_TaggedHeap* strapped;
 	wb_TaggedHeap heap;
@@ -1300,7 +1301,7 @@ WB_ALLOC_API
 wb_TaggedHeap* wb_taggedFixedSizeBootstrap(
 		wb_isize arenaSize, 
 		void* buffer, wb_isize bufferSize, 
-		wb_flags flags)
+		wb_iflags flags)
 {
 	wb_MemoryArena* alloc;
 	wb_TaggedHeap* heap;
@@ -1431,17 +1432,18 @@ void wb_taggedFree(wb_TaggedHeap* heap, wb_isize tag)
 }
 
 #ifdef WB_ALLOC_CPLUSPLUS_FEATURES
-template<typename T, int n>
+template<typename T>
 WB_ALLOC_API 
 T* wb_arenaPushEx(wb_MemoryArena* arena, 
-		WB_ALLOC_EXTENDED_INFO extended)
+		WB_ALLOC_EXTENDED_INFO extended, 
+		int n)
 {
 	return reinterpret_cast<T*>(wb_arenaPushEx(arena, sizeof(T) * n, extended));
 }
 
-template<typename T, int n>
+template<typename T>
 WB_ALLOC_API 
-T* wb_arenaPush(wb_MemoryArena* arena)
+T* wb_arenaPush(wb_MemoryArena* arena, int n)
 {
 	return reinterpret_cast<T*>(wb_arenaPush(arena, sizeof(T) * n));
 }
@@ -1465,7 +1467,7 @@ WB_ALLOC_API
 void wb_poolInit(
 		wb_MemoryPool* pool,
 		wb_MemoryArena* alloc, 
-		wb_flags flags)
+		wb_iflags flags)
 {
 	wb_poolInit(pool, alloc, sizeof(T), flags);
 }
@@ -1473,7 +1475,7 @@ void wb_poolInit(
 template<typename T>
 WB_ALLOC_API 
 wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info,
-		wb_flags flags)
+		wb_iflags flags)
 {
 	return wb_poolBootstrap(info, sizeof(T), flags);
 }
@@ -1482,14 +1484,14 @@ template<typename T>
 WB_ALLOC_API 
 wb_MemoryPool* wb_poolFixedSizeBootstrap(
 		void* buffer, wb_usize size,
-		wb_flags flags)
+		wb_iflags flags)
 {
 	return wb_poolFixedSizeBootstrap(sizeof(T), buffer, size, flags);
 }
 
-template<typename T, int n>
+template<typename T>
 WB_ALLOC_API 
-T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag)
+T* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag, int n)
 {
 	return reinterpret_cast<T*>(wb_taggedAlloc(heap, tag, sizeof(T) * n));
 }
