@@ -221,29 +221,29 @@ typedef wb_isize wb_iflags;
 #define wb_CalcGigabytes(x) (wb_CalcMegabytes((wb_usize)x) * 1024)
 
 /* These are equivalent to the PROT_READ values and friends */
-#define wb_None 0
-#define wb_Read 1
-#define wb_Write 2
-#define wb_Execute 4
+#define wb_NoneAccess 0
+#define wb_ReadAccess 1
+#define wb_WriteAccess 2
+#define wb_ExecuteAccess 4
 
-#define wb_FlagArenaNormal 0
-#define wb_FlagArenaFixedSize 1
-#define wb_FlagArenaStack 2
-#define wb_FlagArenaExtended 4
-#define wb_FlagArenaNoZeroMemory 8
-#define wb_FlagArenaNoRecommit 16 
+#define wb_Arena_Normal 0
+#define wb_Arena_FixedSize 1
+#define wb_Arena_Stack 2
+#define wb_Arena_Extended 4
+#define wb_Arena_NoZeroMemory 8
+#define wb_Arena_NoRecommit 16 
 
-#define wb_FlagPoolNormal 0
-#define wb_FlagPoolFixedSize 1
-#define wb_FlagPoolCompacting 2
-#define wb_FlagPoolNoZeroMemory 4
-#define wb_FlagPoolNoDoubleFreeCheck 8
+#define wb_Pool_Normal 0
+#define wb_Pool_FixedSize 1
+#define wb_Pool_Compacting 2
+#define wb_Pool_NoZeroMemory 4
+#define wb_Pool_NoDoubleFreeCheck 8
 
-#define wb_FlagTaggedHeapNormal 0
-#define wb_FlagTaggedHeapFixedSize 1
-#define wb_FlagTaggedHeapNoZeroMemory 2
-#define wb_FlagTaggedHeapNoSetCommitSize 4
-#define wb_FlagTaggedHeapSearchForBestFit 8
+#define wb_TaggedHeap_Normal 0
+#define wb_TaggedHeap_FixedSize 1
+#define wb_TaggedHeap_NoZeroMemory 2
+#define wb_TaggedHeap_NoSetCommitSize 4
+#define wb_TaggedHeap_SearchForBestFit 8
 #define wbi__TaggedHeapSearchSize 8
 
 /* Struct Definitions */
@@ -594,24 +594,24 @@ WB_ALLOC_BACKEND_API
 void* wbi__commitMemory(void* addr, wb_usize size, wb_iflags flags)
 {
 	DWORD newFlags = 0;
-	if(flags & wb_Read) {
-		if(flags & wb_Write) {
-			if(flags & wb_Execute) {
+	if(flags & wb_ReadAccess) {
+		if(flags & wb_WriteAccess) {
+			if(flags & wb_ExecuteAccess) {
 				newFlags = PAGE_EXECUTE_READWRITE;
 			}
 			newFlags = PAGE_READWRITE;
-		} else if(flags & wb_Execute) {
+		} else if(flags & wb_ExecuteAccess) {
 			newFlags = PAGE_EXECUTE_READ;
 		} else {
 			newFlags = PAGE_READONLY;
 		}
-	} else if(flags & wb_Write) {
-		if(flags & wb_Execute) {
+	} else if(flags & wb_WriteAccess) {
+		if(flags & wb_ExecuteAccess) {
 			newFlags = PAGE_EXECUTE_READWRITE;
 		} else {
 			newFlags = PAGE_READWRITE;
 		}
-	} else if(flags & wb_Execute) {
+	} else if(flags & wb_ExecuteAccess) {
 		newFlags = PAGE_EXECUTE;
 	} else {
 		newFlags = PAGE_NOACCESS;
@@ -657,7 +657,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 	info.totalMemory = totalMem;
 	info.commitSize = wb_CalcMegabytes(1);
 	info.pageSize = pageSize;
-	info.commitFlags = wb_Read | wb_Write;
+	info.commitFlags = wb_ReadAccess | wb_WriteAccess;
 	return info;
 
 }
@@ -826,7 +826,7 @@ wb_MemoryInfo wb_getMemoryInfo()
 	info.totalMemory = totalMem;
 	info.commitSize = wb_CalcMegabytes(1);
 	info.pageSize = pageSize;
-	info.commitFlags = wb_Read | wb_Write;
+	info.commitFlags = wb_ReadAccess | wb_WriteAccess;
 	return info;
 
 }
@@ -861,7 +861,7 @@ void wb_arenaFixedSizeInit(wb_MemoryArena* arena,
 
 	arena->name = "arena";
 
-	arena->flags = flags | wb_FlagArenaFixedSize;
+	arena->flags = flags | wb_Arena_FixedSize;
 	arena->align = 8;
 
 	arena->start = buffer;
@@ -881,7 +881,7 @@ void wb_arenaInit(wb_MemoryArena* arena, wb_MemoryInfo info, wb_iflags flags)
 #endif
 
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
-	if(flags & wb_FlagArenaFixedSize) {
+	if(flags & wb_Arena_FixedSize) {
 		WB_ALLOC_ERROR_HANDLER(
 				"can't create a fixed-size arena with arenaInit\n"
 				"use arenaFixedSizeInit instead.",
@@ -916,11 +916,11 @@ void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size,
 	void *oldHead, *ret;
 	wb_usize newHead, toExpand;
 
-	if(arena->flags & wb_FlagArenaStack) {
+	if(arena->flags & wb_Arena_Stack) {
 		size += sizeof(WB_ALLOC_STACK_PTR);
 	}
 
-	if(arena->flags & wb_FlagArenaExtended) {
+	if(arena->flags & wb_Arena_Extended) {
 		size += sizeof(WB_ALLOC_EXTENDED_INFO);
 	}
 
@@ -928,7 +928,7 @@ void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size,
 	newHead = wb_alignTo((wb_isize)arena->head + size, arena->align);
 
 	if(newHead > (wb_usize)arena->end) {
-		if(arena->flags & wb_FlagArenaFixedSize) {
+		if(arena->flags & wb_Arena_FixedSize) {
 			WB_ALLOC_ERROR_HANDLER(
 					"ran out of memory",
 					arena, arena->name);
@@ -945,7 +945,7 @@ void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size,
 		arena->end = (char*)arena->end + toExpand;
 	}
 
-	if(arena->flags & wb_FlagArenaStack) {
+	if(arena->flags & wb_Arena_Stack) {
 		WB_ALLOC_STACK_PTR* head;
 		head = (WB_ALLOC_STACK_PTR*)newHead;
 		
@@ -953,7 +953,7 @@ void* wb_arenaPushEx(wb_MemoryArena* arena, wb_isize size,
 		*head = (WB_ALLOC_STACK_PTR)oldHead;
 	}
 	
-	if(arena->flags & wb_FlagArenaExtended) {
+	if(arena->flags & wb_Arena_Extended) {
 		WB_ALLOC_EXTENDED_INFO* head;
 		head = (WB_ALLOC_EXTENDED_INFO*)oldHead;
 		*head = extended;
@@ -978,7 +978,7 @@ void wb_arenaPop(wb_MemoryArena* arena)
 	wb_usize prevHeadPtr;
 	void* newHead;
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
-	if(!(arena->flags & wb_FlagArenaStack)) {
+	if(!(arena->flags & wb_Arena_Stack)) {
 		WB_ALLOC_ERROR_HANDLER(
 				"can't use arenaPop with non-stack arenas",
 				arena, arena->name);
@@ -994,7 +994,7 @@ void wb_arenaPop(wb_MemoryArena* arena)
 		return;
 	}
 
-	if(!(arena->flags & wb_FlagArenaNoZeroMemory)) {
+	if(!(arena->flags & wb_Arena_NoZeroMemory)) {
 		wb_usize size;
 		size = (wb_isize)arena->head - (wb_isize)newHead;
 		if(size > 0) {
@@ -1010,7 +1010,7 @@ wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_iflags flags)
 {
 	wb_MemoryArena arena, *strapped;
 #ifndef WB_ALLOC_NO_FLAG_CORRECTNESS_CHECKS
-	if(flags & wb_FlagArenaFixedSize) {
+	if(flags & wb_Arena_FixedSize) {
 		WB_ALLOC_ERROR_HANDLER(
 				"can't create a fixed-size arena with arenaBootstrap\n"
 				"use arenaFixedSizeBootstrap instead.",
@@ -1023,7 +1023,7 @@ wb_MemoryArena* wb_arenaBootstrap(wb_MemoryInfo info, wb_iflags flags)
 	strapped = (wb_MemoryArena*)
 		wb_arenaPush(&arena, sizeof(wb_MemoryArena) + 16);
 	*strapped = arena;
-	if(flags & wb_FlagArenaStack) {
+	if(flags & wb_Arena_Stack) {
 		wb_arenaPushEx(strapped, 0, 0);
 		*((WB_ALLOC_STACK_PTR*)(strapped->head) - 1) = 
 			(WB_ALLOC_STACK_PTR)strapped->head;
@@ -1037,11 +1037,11 @@ wb_MemoryArena* arenaFixedSizeBootstrap(void* buffer, wb_usize size,
 		wb_iflags flags)
 {
 	wb_MemoryArena arena, *strapped;
-	wb_arenaFixedSizeInit(&arena, buffer, size, flags | wb_FlagArenaFixedSize);
+	wb_arenaFixedSizeInit(&arena, buffer, size, flags | wb_Arena_FixedSize);
 	strapped = (wb_MemoryArena*)
 		wb_arenaPush(&arena, sizeof(wb_MemoryArena) + 16);
 	*strapped = arena;
-	if(flags & wb_FlagArenaStack) {
+	if(flags & wb_Arena_Stack) {
 		wb_arenaPushEx(strapped, 0, 0);
 		*((WB_ALLOC_STACK_PTR*)(strapped->head) - 1) = 
 			(WB_ALLOC_STACK_PTR)strapped->head;
@@ -1071,10 +1071,10 @@ void wb_arenaEndTemp(wb_MemoryArena* arena)
 	 * 	ArenaNoRecommit | ArenaNoZeroMemory
 	 * This just moves the pointer, which might be something you want to do.
 	 */
-	if(!(arena->flags & wb_FlagArenaNoRecommit)) {
+	if(!(arena->flags & wb_Arena_NoRecommit)) {
 		wbi__decommitMemory(arena->tempStart, size);
 		wbi__commitMemory(arena->tempStart, size, arena->info.commitFlags);
-	} else if(!(arena->flags & wb_FlagArenaNoZeroMemory)) {
+	} else if(!(arena->flags & wb_Arena_NoZeroMemory)) {
 		WB_ALLOC_MEMSET(arena->tempStart, 0,
 				(wb_isize)arena->head - (wb_isize)arena->tempStart);
 	}
@@ -1135,8 +1135,8 @@ wb_MemoryPool* wb_poolBootstrap(wb_MemoryInfo info,
 	wb_MemoryPool* pool;
 
 	wb_iflags arenaFlags = 0;
-	if(flags & wb_FlagPoolFixedSize) {
-		arenaFlags = wb_FlagArenaFixedSize;
+	if(flags & wb_Pool_FixedSize) {
+		arenaFlags = wb_Arena_FixedSize;
 	}
 	
 	alloc = wb_arenaBootstrap(info, arenaFlags);
@@ -1154,9 +1154,9 @@ wb_MemoryPool* wb_poolFixedSizeBootstrap(
 {
 	wb_MemoryArena* alloc;
 	wb_MemoryPool* pool;
-	flags |= wb_FlagPoolFixedSize;
+	flags |= wb_Pool_FixedSize;
 	
-	alloc = arenaFixedSizeBootstrap(buffer, size, wb_FlagArenaFixedSize);
+	alloc = arenaFixedSizeBootstrap(buffer, size, wb_Arena_FixedSize);
 	pool = (wb_MemoryPool*)wb_arenaPush(alloc, sizeof(wb_MemoryPool));
 
 	wb_poolInit(pool, alloc, elementSize, flags);
@@ -1180,12 +1180,12 @@ void* wb_poolRetrieve(wb_MemoryPool* pool)
 {
 	void *ptr, *ret;
 	ptr = NULL;
-	if((!(pool->flags & wb_FlagPoolCompacting)) && pool->freeList) {
+	if((!(pool->flags & wb_Pool_Compacting)) && pool->freeList) {
 		ptr = pool->freeList;
 		pool->freeList = (void**)*pool->freeList;
 		pool->count++;
 
-		if(!(pool->flags & wb_FlagPoolNoZeroMemory)) {
+		if(!(pool->flags & wb_Pool_NoZeroMemory)) {
 			WB_ALLOC_MEMSET(ptr, 0, pool->elementSize);
 		}
 
@@ -1193,7 +1193,7 @@ void* wb_poolRetrieve(wb_MemoryPool* pool)
 	} 
 
 	if(pool->lastFilled >= pool->capacity - 1) {
-		if(pool->flags & wb_FlagPoolFixedSize) {
+		if(pool->flags & wb_Pool_FixedSize) {
 			WB_ALLOC_ERROR_HANDLER("pool ran out of memory",
 					pool, pool->name);
 			return NULL;
@@ -1211,7 +1211,7 @@ void* wb_poolRetrieve(wb_MemoryPool* pool)
 
 	ptr = (char*)pool->slots + ++pool->lastFilled * pool->elementSize;
 	pool->count++;
-	if(!(pool->flags & wb_FlagPoolNoZeroMemory)) {
+	if(!(pool->flags & wb_Pool_NoZeroMemory)) {
 		WB_ALLOC_MEMSET(ptr, 0, pool->elementSize);
 	}
 	return ptr;
@@ -1222,7 +1222,7 @@ void wb_poolRelease(wb_MemoryPool* pool, void* ptr)
 {
 	pool->count--;
 
-	if(pool->freeList && !(pool->flags & wb_FlagPoolNoDoubleFreeCheck)) {
+	if(pool->freeList && !(pool->flags & wb_Pool_NoDoubleFreeCheck)) {
 		void** localList = pool->freeList;
 		do {
 			if(ptr == localList) {
@@ -1234,7 +1234,7 @@ void wb_poolRelease(wb_MemoryPool* pool, void* ptr)
 		} while((localList = (void**)*localList));
 	}
 
-	if(pool->flags & wb_FlagPoolCompacting) {
+	if(pool->flags & wb_Pool_Compacting) {
 		WB_ALLOC_MEMCPY(ptr, 
 				(char*)pool->slots + pool->count * pool->elementSize,
 				pool->elementSize);
@@ -1272,9 +1272,9 @@ void wb_taggedInit(wb_TaggedHeap* heap, wb_MemoryArena* arena,
 	heap->arenaSize = internalArenaSize;
 	wb_poolInit(&heap->pool, arena, 
 			internalArenaSize + sizeof(wbi__TaggedHeapArena), 
-			wb_FlagPoolNormal | wb_FlagPoolNoDoubleFreeCheck | 
-			((flags & wb_FlagTaggedHeapNoZeroMemory) ? 
-			wb_FlagPoolNoZeroMemory : 
+			wb_Pool_Normal | wb_Pool_NoDoubleFreeCheck | 
+			((flags & wb_TaggedHeap_NoZeroMemory) ? 
+			wb_Pool_NoZeroMemory : 
 			0));
 }
 
@@ -1288,9 +1288,9 @@ wb_TaggedHeap* wb_taggedBootstrap(wb_MemoryInfo info,
 	wb_MemoryArena* arena;
 	info.commitSize = wb_calcTaggedHeapSize(arenaSize, 8, 1);
 	arena = wb_arenaBootstrap(info, 
-			((flags & wb_FlagTaggedHeapNoZeroMemory) ? 
-			wb_FlagArenaNoZeroMemory :
-			wb_FlagArenaNormal));
+			((flags & wb_TaggedHeap_NoZeroMemory) ? 
+			wb_Arena_NoZeroMemory :
+			wb_Arena_Normal));
 	strapped = (wb_TaggedHeap*)wb_arenaPush(arena, sizeof(wb_TaggedHeap) + 16);
 	wb_taggedInit(&heap, arena, arenaSize, flags);
 	*strapped = heap;
@@ -1305,12 +1305,12 @@ wb_TaggedHeap* wb_taggedFixedSizeBootstrap(
 {
 	wb_MemoryArena* alloc;
 	wb_TaggedHeap* heap;
-	flags |= wb_FlagTaggedHeapFixedSize;
+	flags |= wb_TaggedHeap_FixedSize;
 	
 	alloc = arenaFixedSizeBootstrap(buffer, bufferSize, 
-			wb_FlagArenaFixedSize |
-			((flags & wb_FlagTaggedHeapNoZeroMemory) ? 
-			wb_FlagArenaNoZeroMemory : 0));
+			wb_Arena_FixedSize |
+			((flags & wb_TaggedHeap_NoZeroMemory) ? 
+			wb_Arena_NoZeroMemory : 0));
 	heap = (wb_TaggedHeap*)wb_arenaPush(alloc, sizeof(wb_TaggedHeap));
 
 	wb_taggedInit(heap, alloc, arenaSize, flags);
@@ -1386,7 +1386,7 @@ void* wb_taggedAlloc(wb_TaggedHeap* heap, wb_isize tag, wb_usize size)
 		/* TODO(will) add a find-better-fit option rather than
 		 * allocating new arenas whenever */
 
-		if(heap->flags & wb_FlagTaggedHeapSearchForBestFit) {
+		if(heap->flags & wb_TaggedHeap_SearchForBestFit) {
 			while((arena = arena->next)) {
 				if((char*)arena->head + size < (char*)arena->end) {
 					canFit[canFitCount++] = arena;
